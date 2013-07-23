@@ -314,6 +314,165 @@ ioctl_EVIOCGRAB(PyObject *self, PyObject *args)
     return Py_None;
 }
 
+// Adding extra functionality
+static PyObject *
+ioctl_EVIOCGEFFECTS(PyObject *self, PyObject *args)
+{
+    int fd, ret, n_effects;
+    ret = PyArg_ParseTuple(args, "i", &fd);
+    if (!ret) return NULL;
+
+    ret = ioctl(fd, EVIOCGEFFECTS, &n_effects);
+    if (ret != 0) {
+        PyErr_SetFromErrno(PyExc_IOError);
+        return NULL;
+    }
+
+    return Py_BuildValue("i", n_effects);
+}
+
+static PyObject *
+ioctl_EVIOCSFF(PyObject *self, PyObject *args)
+{
+    int fd, ret;
+
+    // we give just some pertinent fx parameters
+    int fxtype, direction,replay_length,replay_delay;
+    int attack_level, constant_level, fade_level;
+    int attack_length, fade_length;
+    int fxid; 
+    
+    ret = PyArg_ParseTuple(args, "iiiiiiiiiii", &fd, &fxtype, &direction, &replay_length, &replay_delay,
+                                &constant_level,
+                                &attack_level, &attack_length,
+                                &fade_level, &fade_length,
+                                &fxid);
+    if (!ret) return NULL;
+    
+    struct ff_effect effect; // need to build this effect from args
+    memset(&effect,0,sizeof(effect));
+    
+    effect.id = fxid; //-1 means save a new effect
+	effect.type=fxtype; // TODO check for valid values of this
+	effect.trigger.button=0;
+	effect.trigger.interval=0;
+	effect.replay.length=replay_length;
+	effect.replay.delay=replay_delay;
+	effect.direction=direction;
+	effect.u.constant.level=constant_level;
+	effect.u.constant.envelope.attack_length=attack_length;
+	effect.u.constant.envelope.attack_level=attack_level;
+	effect.u.constant.envelope.fade_length=fade_length;
+	effect.u.constant.envelope.fade_level=fade_level;
+	
+    ret = ioctl(fd, EVIOCSFF, &effect);
+    
+    if (ret != 0) {
+        PyErr_SetFromErrno(PyExc_IOError);
+        return NULL;
+    }
+    
+    int effect_id = effect.id; //driver sets an effect ID after saving
+    
+    return Py_BuildValue("i", effect_id);
+
+}
+
+static PyObject *
+ioctl_EVIOCRMFF(PyObject *self, PyObject *args)
+{
+    int fd, ret,effect_id;
+
+    ret = PyArg_ParseTuple(args, "ii", &fd, &effect_id);
+    if (!ret) return NULL;
+    //effect_id is id previously returned from ioctl_EVIOCSFF
+    ret = ioctl(fd, EVIOCRMFF, &effect_id);
+    
+    if (ret != 0) {
+        PyErr_SetFromErrno(PyExc_IOError);
+        return NULL;
+    }
+    
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject *
+set_FF_AUTOCENTER(PyObject *self, PyObject *args)
+{
+    int fd, ret, autocenter_force; //0 to 0xFFFFUL;
+
+    ret = PyArg_ParseTuple(args, "ii", &fd, &autocenter_force);
+    if (!ret) return NULL;
+
+    struct input_event ff_center;
+    ff_center.type = EV_FF;
+    ff_center.code = FF_AUTOCENTER; //make it want to return to center, ie 'sticky'
+    ff_center.value = autocenter_force;
+
+    ret = write(fd, &ff_center, sizeof(ff_center));
+
+    if (ret == -1) {
+        PyErr_SetFromErrno(PyExc_IOError);
+        return NULL;
+    }
+    
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
+static PyObject *
+set_FF_GAIN(PyObject *self, PyObject *args)
+{
+    int fd, ret, gain; //0 to 0xFFFFUL;
+
+    ret = PyArg_ParseTuple(args, "ii", &fd, &gain);
+    if (!ret) return NULL;
+
+    struct input_event ff_gain;
+    ff_gain.type = EV_FF;
+    ff_gain.code = FF_GAIN; //make it want to return to center, ie 'sticky'
+    ff_gain.value = gain;
+
+    ret = write(fd, &ff_gain, sizeof(ff_gain));
+
+    if (ret == -1) {
+        PyErr_SetFromErrno(PyExc_IOError);
+        return NULL;
+    }
+    
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject *
+play_FF_EFFECT(PyObject *self, PyObject *args)
+{
+    int fd, ret, fxid, ntimes; //ntimes==0 means stop it
+
+    ret = PyArg_ParseTuple(args, "iii", &fd, &fxid, &ntimes);
+    if (!ret) return NULL;
+
+    struct input_event ff_play;
+    ff_play.type = EV_FF;
+    ff_play.code = fxid;
+    ff_play.value = ntimes;
+
+    ret = write(fd, &ff_play, sizeof(ff_play));
+
+    if (ret == -1) {
+        PyErr_SetFromErrno(PyExc_IOError);
+        return NULL;
+    }
+    
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
+
+
 
 // todo: this function needs a better name
 static PyObject *
@@ -362,8 +521,16 @@ static PyMethodDef MethodTable[] = {
     { "ioctl_EVIOCSREP",      ioctl_EVIOCSREP,      METH_VARARGS},
     { "ioctl_EVIOCGVERSION",  ioctl_EVIOCGVERSION,  METH_VARARGS},
     { "ioctl_EVIOCGRAB",      ioctl_EVIOCGRAB,      METH_VARARGS},
+    { "ioctl_EVIOCGEFFECTS",  ioctl_EVIOCGEFFECTS,  METH_VARARGS, "Query number of simultaneous forcefeedback effects"},
+    { "ioctl_EVIOCSFF",       ioctl_EVIOCSFF,       METH_VARARGS, "Upload/save force feedback effect"},
+    { "ioctl_EVIOCRMFF",      ioctl_EVIOCRMFF,      METH_VARARGS, "Remove a previously-uplaoded force feedback effect"},
+    { "set_FF_AUTOCENTER",    set_FF_AUTOCENTER,    METH_VARARGS, "Set forcefeedback autocenter 0 - 0xFFFF"},
+    { "set_FF_GAIN",          set_FF_GAIN,          METH_VARARGS, "Set forcefeedback gain 0 - 0xFFFF"},
+    { "play_FF_EFFECT",       play_FF_EFFECT,       METH_VARARGS, "Play a previously-uploaded forcefeedback effect"},
+    
     { "get_sw_led_snd",       get_sw_led_snd,       METH_VARARGS},
     { "device_read",          device_read,          METH_VARARGS, "read an input event from a device" },
+//   { "device_write_effect",  device_write_effect,  METH_VARARGS, "Write a Force Feedback effect to device"},         
     { "device_read_many",     device_read_many,     METH_VARARGS, "read all available input events from a device" },
 
     { NULL, NULL, 0, NULL}

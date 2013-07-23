@@ -266,7 +266,46 @@ class InputDevice(object):
                      IOError('Invalid argument') exception.'''
 
         _input.ioctl_EVIOCGRAB(self.fd, 0)
+        
+    def n_effects(self):
+        '''Query device for number of simultaneous Force Feedback effects'''
 
+        return _input.ioctl_EVIOCGEFFECTS(self.fd)
+        
+        
+    def set_FF_AUTOCENTER(self,force):
+        '''set AUTOCENTER force to make wheel return to 0'''
+        force = int(force) & 0xFFFF
+        return _input.set_FF_AUTOCENTER(self.fd, force)
+        
+    def clear_FF_AUTOCENTER(self):
+        '''clear AUTOCENTER force'''
+        return _input.set_FF_AUTOCENTER(self.fd, 0)
+
+    def set_FF_GAIN(self,force):
+        '''set GAIN of force effects'''
+        gain = int(gain) & 0xFFFF
+        return _input.set_FF_GAIN(self.fd, gain)
+     
+    def upload_FF_EFFECT(self,fx):
+        '''save (or update) a FFEffect forcefeedback effect'''
+        # pull out the parameters of the FfEffect
+        #FFEffect(fxtype=ecodes.FF_CONSTANT,direction=0xC000,replay_length=0xF,replay_delay=0xF,fxid=-1)
+        
+                                
+        return _input.ioctl_EVIOCSFF(self.fd, fx.fxtype, fx.direction, fx.replay_length, fx.replay_delay, 
+            fx.constant_level, fx.attack_level, fx.attack_length, fx.fade_level, fx.fade_length,
+            fx.fxid)
+        
+    def play_FF(self, fxid, ntimes=1):
+        ''' play a previously uploaded forcefeedback effect'''
+        return _input.play_FF_EFFECT(self.fd, fxid,ntimes)
+
+    def stop_FF(self, fxid):
+        ''' stop a previously uploaded forcefeedback effect'''
+        return _input.play_FF_EFFECT(self.fd, fxid,0)
+
+             
     @property
     def repeat(self):
         '''Get or set the keyboard repeat rate (in characters per

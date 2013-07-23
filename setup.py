@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # encoding: utf-8
-
+#import sys; sys.path.insert(0,"/usr/lib/python2.7/site-packages/evdev-0.4.0-py2.7-linux-armv7l.egg")
 import os
 import sys
 import textwrap
@@ -37,12 +37,12 @@ ecodes_c = Extension('evdev._ecodes', sources=['evdev/ecodes.c'], )  # extra_com
 
 kw = {
     'name'                 : 'evdev',
-    'version'              : '0.4.0',
+    'version'              : '0.5.0',
 
-    'description'          : 'bindings for the linux input handling subsystem',
+    'description'          : 'bindings for the linux input handling subsystem + ForceFeedback',
     'long_description'     : open(pjoin(here, 'README.rst')).read(),
 
-    'author'               : 'Georgi Valkov',
+    'author'               : 'Georgi Valkov/Pehr Hovey',
     'author_email'         : 'georgi.t.valkov@gmail.com',
 
     'license'              : 'New BSD License',

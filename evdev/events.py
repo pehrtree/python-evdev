@@ -37,7 +37,7 @@ All of the provided classes have reasonable ``str()`` and ``repr()`` methods::
 # event type descriptions have been taken mot-a-mot from:
 # http://www.kernel.org/doc/Documentation/input/event-codes.txt
 
-from evdev.ecodes import keys, KEY, SYN, REL, ABS, EV_KEY, EV_REL, EV_ABS, EV_SYN
+from evdev.ecodes import keys, KEY, SYN, REL, ABS, EV_KEY, EV_REL, EV_ABS, EV_SYN,FF_CONSTANT,FF
 
 
 class InputEvent(object):
@@ -174,7 +174,51 @@ class SynEvent(object):
     def __repr__(s):
         return '{}({!r})'.format(s.__class__.__name__, s.event)
 
+class FFEffect(object):
+    '''
+    Parameters for a Forcefeedback effect. This resembles the ``ff_effect`` C struct.
+    This is uploaded/saved to the device using EVIOSFF prior to being played
+    '''
 
+    __slots__ = 'fxtype', 'direction', 'replay_length', 'replay_delay', 'fxid', 'constant_level', 'attack_level', 'attack_length','fade_level', 'fade_length'
+
+	
+	# set the pertinent parameters
+   # def __init__(self, fxtype,direction,replay_length,replay_delay,fxid):
+    def __init__(self, fxtype=FF_CONSTANT,direction=0xC000,replay_length=0xFF,replay_delay=0x0,
+            constant_level=1200, attack_level=0,attack_length=0, fade_level=0, fade_length=0,
+        fxid=-1):
+       
+        # Effect direction (left or right)
+        self.direction = direction
+        
+         #: Effect type - one of ``ecodes.EV_*``
+        self.fxtype = fxtype
+
+        # How long to play the effect
+        self.replay_length = replay_delay
+        
+        # How long to wait before replaying the effect
+        self.replay_delay = replay_delay
+        
+        # the actual strenght parameters
+        self.constant_level=constant_level
+
+        self.attack_level = attack_level
+
+        self.attack_length=attack_length
+        self.fade_level = fade_level
+        self.fade_length = fade_length
+        
+        #: ID of the effect. -1 means 'new effect'. Otherwise modify a new one
+        self.fxid = fxid
+        
+
+    def __str__(s):
+        msg = 'ff_effect id {:2d} {:s} dir {:02d}, length {:02d}, replay delay {:02d}'
+        return msg.format(s.fxid, FF[s.fxtype],s.direction, s.replay_length, s.replay_delay)
+
+ 
 #: Used by :func:`evdev.util.categorize()`
 event_factory = {
     EV_KEY: KeyEvent,
