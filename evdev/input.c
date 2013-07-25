@@ -331,34 +331,40 @@ ioctl_EVIOCGEFFECTS(PyObject *self, PyObject *args)
     return Py_BuildValue("i", n_effects);
 }
 
+// upload a FF_CONSTANT effect
+// a big hack where we pass all relevant params as ints - not custom object
+
 static PyObject *
-ioctl_EVIOCSFF(PyObject *self, PyObject *args)
+ioctl_EVIOCSFF_CONSTANT(PyObject *self, PyObject *args)
 {
     int fd, ret;
 
+    // for now this only does FF_CONSTANT
     // we give just some pertinent fx parameters
     int fxtype, direction,replay_length,replay_delay;
     int attack_level, constant_level, fade_level;
     int attack_length, fade_length;
     int fxid; 
     
-    ret = PyArg_ParseTuple(args, "iiiiiiiiiii", &fd, &fxtype, &direction, &replay_length, &replay_delay,
-                                &constant_level,
+    ret = PyArg_ParseTuple(args, "iiiiiiiiiii", &fd, &fxtype,&fxid, &direction, &constant_level, &replay_length, &replay_delay,
                                 &attack_level, &attack_length,
-                                &fade_level, &fade_length,
-                                &fxid);
+                                &fade_level, &fade_length);
     if (!ret) return NULL;
-    
+  
+
+
     struct ff_effect effect; // need to build this effect from args
     memset(&effect,0,sizeof(effect));
     
     effect.id = fxid; //-1 means save a new effect
-	effect.type=fxtype; // TODO check for valid values of this
+	effect.type=fxtype; 
+	effect.direction=direction;
+
 	effect.trigger.button=0;
 	effect.trigger.interval=0;
 	effect.replay.length=replay_length;
 	effect.replay.delay=replay_delay;
-	effect.direction=direction;
+	// FF_Constant has a ff_constant struct in the union
 	effect.u.constant.level=constant_level;
 	effect.u.constant.envelope.attack_length=attack_length;
 	effect.u.constant.envelope.attack_level=attack_level;
@@ -377,6 +383,7 @@ ioctl_EVIOCSFF(PyObject *self, PyObject *args)
     return Py_BuildValue("i", effect_id);
 
 }
+
 
 static PyObject *
 ioctl_EVIOCRMFF(PyObject *self, PyObject *args)
@@ -522,7 +529,7 @@ static PyMethodDef MethodTable[] = {
     { "ioctl_EVIOCGVERSION",  ioctl_EVIOCGVERSION,  METH_VARARGS},
     { "ioctl_EVIOCGRAB",      ioctl_EVIOCGRAB,      METH_VARARGS},
     { "ioctl_EVIOCGEFFECTS",  ioctl_EVIOCGEFFECTS,  METH_VARARGS, "Query number of simultaneous forcefeedback effects"},
-    { "ioctl_EVIOCSFF",       ioctl_EVIOCSFF,       METH_VARARGS, "Upload/save force feedback effect"},
+    { "ioctl_EVIOCSFF_CONSTANT", ioctl_EVIOCSFF_CONSTANT, METH_VARARGS, "Upload/save FF_CONSTANT force feedback effect"},
     { "ioctl_EVIOCRMFF",      ioctl_EVIOCRMFF,      METH_VARARGS, "Remove a previously-uplaoded force feedback effect"},
     { "set_FF_AUTOCENTER",    set_FF_AUTOCENTER,    METH_VARARGS, "Set forcefeedback autocenter 0 - 0xFFFF"},
     { "set_FF_GAIN",          set_FF_GAIN,          METH_VARARGS, "Set forcefeedback gain 0 - 0xFFFF"},

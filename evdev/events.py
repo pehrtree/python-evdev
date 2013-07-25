@@ -174,14 +174,209 @@ class SynEvent(object):
     def __repr__(s):
         return '{}({!r})'.format(s.__class__.__name__, s.event)
 
+
+''' 
+    Forcefeedback notes from input.h
+  ff_effect 
+    struct ff_effect {
+	__u16 type;
+	__s16 id;
+	__u16 direction;
+	struct ff_trigger trigger;
+	struct ff_replay replay;
+
+	union {
+		struct ff_constant_effect constant;  // Linux HID only does FF_CONSTANT right now
+	} u;
+};	
+	 * Direction of the effect is encoded as follows:
+ *	0 deg -> 0x0000 (down)
+ *	90 deg -> 0x4000 (left)
+ *	180 deg -> 0x8000 (up)
+ *	270 deg -> 0xC000 (right)
+ 
+ 
+ All duration values are expressed in ms. Values above 32767 ms (0x7fff)
+ * should not be used and have unspecified results.
+
+  * Valid range for the attack and fade levels is 0x0000 - 0x7fff
+  # constant.level can be negative?
+
+ '''  
+
+class FFReplay(object):
+    '''
+    FF replay for scheduling the effect. This closely resembles the ``ff_replay`` C struct.
+
+    All unsigned 16-bits
+    '''
+    __slots__ = 'length', 'delay'
+
+    def __init__(self,length=500, delay=1):
+        #: duration of the effect (ms)
+        self.length  = length
+
+        #: delay before effect should start playing
+        self.delay = delay
+
+
+    def __str__(s):
+        msg = 'ff_replay length {:d}ms replay after {:d}ms '
+        return msg.format(s.length, s.delay)
+
+ 
+class FFTrigger(object):
+    '''
+    FF trigger for triggering the effect. This closely resembles the ``ff_trigger`` C struct.
+
+    All unsigned 16-bits
+    '''
+    __slots__ = 'button', 'interval'
+
+    def __init__(self,button=0, interval=0):
+        #: number of the button triggering the effect
+        self.button  = button
+
+        #: controls how soon the effect can be re-triggered (ms)
+        self.interval = interval
+
+
+    def __str__(s):
+        msg = 'ff_trigger button {:d} interval {:d}ms '
+        return msg.format(s.button, s.interval)
+
+ 
+class FFEnvelope(object):
+    '''
+    FF fade envelope. This closely resembles the ``ff_envelope`` C struct.
+    
+    Notes from input.h:
+    All duration values are expressed in ms. Values above 32767 ms (0x7fff)
+    should not be used and have unspecified results.
+    
+    The @attack_level and @fade_level are absolute values; when applying
+    envelope force-feedback core will convert to positive/negative
+    value based on polarity of the default level of the effect.
+    
+    Valid range for the attack and fade levels is 0x0000 - 0x7fff
+ 
+     All unsigned 16-bits
+
+    '''
+
+    __slots__ = 'attack_length', 'attack_level', 'fade_length', 'fade_level'
+
+    def __init__(self,attack_length=150, attack_level=0x3fff, fade_length=1000, fade_level=0):
+        #: duration of the attck (ms)
+        self.attack_length  = attack_length
+
+        #: level at the beginning of the attack
+        self.attack_level = attack_level
+
+        #: duration of the fade (ms)
+        self.fade_length = fade_length
+
+        #: level at the end of the fade
+        self.fade_level = fade_level
+
+    
+
+    def __str__(s):
+        msg = 'ff_envelope attack level {:d} {:d}ms fade to  {:d} over {:d} ms'
+        return msg.format(int(s.attack_level), int(s.attack_length), int(s.fade_level), int(s.fade_length))
+
+class FFConstantEffect(object):
+    ''' 
+    Parameters for a constant effect. this closely resembles the ``ff_constant`` C struct.
+    level is signed 16-bits
+    envelope is FFEnvelope object
+    '''
+    __slots__ = 'level', 'envelope'
+
+    def __init__(self,level=0x3ff, envelope=FFEnvelope()):
+        #: beginning strength of the effect; may be negative
+        self.level  = level
+
+        if type(envelope) is not FFEnvelope:
+            raise Exception("FFConstantEffect: envelope %s is not FFEnvelope"%(envelope))
+            
+        #: envelope data
+        self.envelope = envelope
+
+
+    def __str__(s):
+        msg = 'ff_constant effect start level {:d} envelope {:s}'
+        return msg.format(s.level, s.envelope)
+
 class FFEffect(object):
+    ''' 
+    Parameters for a force feedback effect. this closely resembles the ``ff_effect`` C struct.
+    type is unsigned 16-bits
+    id is signed 16 bits
+    direction is signed 16 bits
+    
+    ff_replay is FFReplay object
+    ff_trigger is FFTrigger object
+    effect is FFConstant Effect. effect is the 'u' union in the real struct.
+    
+  
+    
+    '''
+    __slots__ = 'type', 'id','direction', 'trigger','replay','effect'
+    
+    FX_DOWN = 0
+    FX_LEFT = 0x4000
+    FX_UP = 0x8000
+    FX_RIGHT = 0xC000
+    
+    directions={0:"DOWN",0x4000:"LEFT",0x8000:"UP", 0xC000:"RIGHT"}
+    
+    def __init__(self,_type, id,direction,trigger,replay,effect):
+        
+        #: effect type code - FF_CONSTANT, etc
+        self.type  = _type
+
+        #: id of the effect. -1 means create a new one
+        self.id  = id
+
+        #: direction of the effect.
+        #  Direction of the effect is encoded as follows:
+        # 0 deg -> 0x0000 (down)
+        # 90 deg -> 0x4000 (left)
+        # 180 deg -> 0x8000 (up)
+        # 270 deg -> 0xC000 (right)
+        self.direction  = direction
+
+
+        if type(trigger) is not FFTrigger:
+            raise Exception("FFEffect: trigger %s is not FFTrigger"%(trigger))     
+        #: how the effect is triggered
+        self.trigger = trigger
+        
+        
+        if type(replay) is not FFReplay:
+            raise Exception("FFEffect: replay %s is not FFReplay"%(replay))    
+        #: how the effect is triggered
+        self.replay = replay
+
+
+        # assign the specific effect
+        
+        self.effect = effect
+
+    def __str__(s):
+        msg = 'ff_effect id {:d} type {:s} direction {:s} effect: {:s}'
+        return msg.format(s.id, FF[s.type], FFEffect.directions.get(s.direction,s.direction),s.effect)  
+                                 
+class FFEffectTest(object):
     '''
     Parameters for a Forcefeedback effect. This resembles the ``ff_effect`` C struct.
-    This is uploaded/saved to the device using EVIOSFF prior to being played
+    This is uploaded/saved to the device using EVIOSFF prior to being played.
+    Currently locked to FF_CONSTANT
     '''
 
     __slots__ = 'fxtype', 'direction', 'replay_length', 'replay_delay', 'fxid', 'constant_level', 'attack_level', 'attack_length','fade_level', 'fade_length'
-
+    
 	
 	# set the pertinent parameters
    # def __init__(self, fxtype,direction,replay_length,replay_delay,fxid):
@@ -193,7 +388,7 @@ class FFEffect(object):
         self.direction = direction
         
          #: Effect type - one of ``ecodes.EV_*``
-        self.fxtype = fxtype
+        self.fxtype = FF_CONSTANT
 
         # How long to play the effect
         self.replay_length = replay_delay
@@ -213,7 +408,8 @@ class FFEffect(object):
         #: ID of the effect. -1 means 'new effect'. Otherwise modify a new one
         self.fxid = fxid
         
-
+    def setEnvelope():
+        x=0
     def __str__(s):
         msg = 'ff_effect id {:2d} {:s} dir {:02d}, length {:02d}, replay delay {:02d}'
         return msg.format(s.fxid, FF[s.fxtype],s.direction, s.replay_length, s.replay_delay)
@@ -229,4 +425,4 @@ event_factory = {
 
 
 __all__ = ('InputEvent', 'KeyEvent', 'RelEvent', 'SynEvent',
-           'AbsEvent', 'event_factory')
+           'AbsEvent', 'event_factory','FFEffect','FFConstantEffect')

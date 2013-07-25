@@ -5,7 +5,7 @@ from select import select
 from collections import namedtuple
 
 from evdev import _input, _uinput, ecodes, util
-from evdev.events import InputEvent
+from evdev.events import InputEvent, FFEffect, FFConstantEffect
 
 
 _AbsInfo = namedtuple('AbsInfo', ['value', 'min', 'max', 'fuzz', 'flat', 'resolution'])
@@ -287,15 +287,26 @@ class InputDevice(object):
         gain = int(gain) & 0xFFFF
         return _input.set_FF_GAIN(self.fd, gain)
      
+     
     def upload_FF_EFFECT(self,fx):
         '''save (or update) a FFEffect forcefeedback effect'''
         # pull out the parameters of the FfEffect
         #FFEffect(fxtype=ecodes.FF_CONSTANT,direction=0xC000,replay_length=0xF,replay_delay=0xF,fxid=-1)
+        if not fx or type(fx) is not FFEffect:
+            raise Exception("Invalid fx")
         
-                                
-        return _input.ioctl_EVIOCSFF(self.fd, fx.fxtype, fx.direction, fx.replay_length, fx.replay_delay, 
-            fx.constant_level, fx.attack_level, fx.attack_length, fx.fade_level, fx.fade_length,
-            fx.fxid)
+        good = False
+        if type(fx.effect) is FFConstantEffect:
+            effect = fx.effect
+            envelope = effect.envelope
+            return _input.ioctl_EVIOCSFF_CONSTANT(self.fd, fx.type,fx.id, fx.direction,effect.level,
+             fx.replay.length, fx.replay.delay, 
+             envelope.attack_level, envelope.attack_length, envelope.fade_level, envelope.fade_length,
+            )
+        else:
+            raise Exception("Only FFConstantEffect supported!")
+            return -1                    
+       
         
     def play_FF(self, fxid, ntimes=1):
         ''' play a previously uploaded forcefeedback effect'''
