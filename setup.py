@@ -37,6 +37,7 @@ ecodes_c = Extension('evdev._ecodes', sources=['evdev/ecodes.c'], )  # extra_com
 
 kw = {
     'name'                 : 'evdev',
+
     'version'              : '0.5.0',
 
     'description'          : 'bindings for the linux input handling subsystem + ForceFeedback',
