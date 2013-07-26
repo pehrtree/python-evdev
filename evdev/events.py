@@ -214,10 +214,10 @@ class FFReplay(object):
 
     def __init__(self,length=500, delay=1):
         #: duration of the effect (ms)
-        self.length  = length
+        self.length  = int(length)
 
         #: delay before effect should start playing
-        self.delay = delay
+        self.delay = int(delay)
 
 
     def __str__(s):
@@ -235,10 +235,10 @@ class FFTrigger(object):
 
     def __init__(self,button=0, interval=0):
         #: number of the button triggering the effect
-        self.button  = button
+        self.button  = int(button)
 
         #: controls how soon the effect can be re-triggered (ms)
-        self.interval = interval
+        self.interval = int(interval)
 
 
     def __str__(s):
@@ -266,23 +266,25 @@ class FFEnvelope(object):
 
     __slots__ = 'attack_length', 'attack_level', 'fade_length', 'fade_level'
 
+    MAX_LENGTH = 0x7FFF
+    MAX_LEVEL = 0x7FFF
     def __init__(self,attack_length=150, attack_level=0x3fff, fade_length=1000, fade_level=0):
         #: duration of the attck (ms)
-        self.attack_length  = attack_length
+        self.attack_length  = int(attack_length)
 
         #: level at the beginning of the attack
-        self.attack_level = attack_level
+        self.attack_level = int(attack_level)
 
         #: duration of the fade (ms)
-        self.fade_length = fade_length
+        self.fade_length = int(fade_length)
 
         #: level at the end of the fade
-        self.fade_level = fade_level
+        self.fade_level = int(fade_level)
 
     
 
     def __str__(s):
-        msg = 'ff_envelope attack level {:d} {:d}ms fade to  {:d} over {:d} ms'
+        msg = 'ff_envelope attack level 0x{:x} {:d}ms fade to  0x{:x} over {:d} ms'
         return msg.format(int(s.attack_level), int(s.attack_length), int(s.fade_level), int(s.fade_length))
 
 class FFConstantEffect(object):
@@ -295,7 +297,7 @@ class FFConstantEffect(object):
 
     def __init__(self,level=0x3ff, envelope=FFEnvelope()):
         #: beginning strength of the effect; may be negative
-        self.level  = level
+        self.level  = int(level)
 
         if type(envelope) is not FFEnvelope:
             raise Exception("FFConstantEffect: envelope %s is not FFEnvelope"%(envelope))
@@ -305,7 +307,7 @@ class FFConstantEffect(object):
 
 
     def __str__(s):
-        msg = 'ff_constant effect start level {:d} envelope {:s}'
+        msg = 'ff_constant effect start level 0x{:x} envelope {:s}'
         return msg.format(s.level, s.envelope)
 
 class FFEffect(object):
@@ -319,6 +321,11 @@ class FFEffect(object):
     ff_trigger is FFTrigger object
     effect is FFConstant Effect. effect is the 'u' union in the real struct.
     
+    Direction of the effect is encoded as follows:
+    0 deg -> 0x0000 (down)
+    90 deg -> 0x4000 (left)
+    180 deg -> 0x8000 (up)
+    270 deg -> 0xC000 (right)
   
     
     '''
@@ -340,11 +347,6 @@ class FFEffect(object):
         self.id  = id
 
         #: direction of the effect.
-        #  Direction of the effect is encoded as follows:
-        # 0 deg -> 0x0000 (down)
-        # 90 deg -> 0x4000 (left)
-        # 180 deg -> 0x8000 (up)
-        # 270 deg -> 0xC000 (right)
         self.direction  = direction
 
 
@@ -361,60 +363,14 @@ class FFEffect(object):
 
 
         # assign the specific effect
-        
+        if type(effect) is not FFConstantEffect:
+            raise Exception("FFEffect: effect type %s is not supported"%(type(effect)))    
         self.effect = effect
 
     def __str__(s):
         msg = 'ff_effect id {:d} type {:s} direction {:s} effect: {:s}'
         return msg.format(s.id, FF[s.type], FFEffect.directions.get(s.direction,s.direction),s.effect)  
                                  
-class FFEffectTest(object):
-    '''
-    Parameters for a Forcefeedback effect. This resembles the ``ff_effect`` C struct.
-    This is uploaded/saved to the device using EVIOSFF prior to being played.
-    Currently locked to FF_CONSTANT
-    '''
-
-    __slots__ = 'fxtype', 'direction', 'replay_length', 'replay_delay', 'fxid', 'constant_level', 'attack_level', 'attack_length','fade_level', 'fade_length'
-    
-	
-	# set the pertinent parameters
-   # def __init__(self, fxtype,direction,replay_length,replay_delay,fxid):
-    def __init__(self, fxtype=FF_CONSTANT,direction=0xC000,replay_length=0xFF,replay_delay=0x0,
-            constant_level=1200, attack_level=0,attack_length=0, fade_level=0, fade_length=0,
-        fxid=-1):
-       
-        # Effect direction (left or right)
-        self.direction = direction
-        
-         #: Effect type - one of ``ecodes.EV_*``
-        self.fxtype = FF_CONSTANT
-
-        # How long to play the effect
-        self.replay_length = replay_delay
-        
-        # How long to wait before replaying the effect
-        self.replay_delay = replay_delay
-        
-        # the actual strenght parameters
-        self.constant_level=constant_level
-
-        self.attack_level = attack_level
-
-        self.attack_length=attack_length
-        self.fade_level = fade_level
-        self.fade_length = fade_length
-        
-        #: ID of the effect. -1 means 'new effect'. Otherwise modify a new one
-        self.fxid = fxid
-        
-    def setEnvelope():
-        x=0
-    def __str__(s):
-        msg = 'ff_effect id {:2d} {:s} dir {:02d}, length {:02d}, replay delay {:02d}'
-        return msg.format(s.fxid, FF[s.fxtype],s.direction, s.replay_length, s.replay_delay)
-
- 
 #: Used by :func:`evdev.util.categorize()`
 event_factory = {
     EV_KEY: KeyEvent,

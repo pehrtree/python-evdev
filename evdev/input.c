@@ -344,9 +344,11 @@ ioctl_EVIOCSFF_CONSTANT(PyObject *self, PyObject *args)
     int fxtype, direction,replay_length,replay_delay;
     int attack_level, constant_level, fade_level;
     int attack_length, fade_length;
-    int fxid; 
+    int fxid,trigger_button,trigger_interval;
     
-    ret = PyArg_ParseTuple(args, "iiiiiiiiiii", &fd, &fxtype,&fxid, &direction, &constant_level, &replay_length, &replay_delay,
+    ret = PyArg_ParseTuple(args, "iiiiiiiiiiiii", &fd, &fxtype,&fxid, &direction, &constant_level, 
+                                &replay_length, &replay_delay, 
+                                &trigger_button, &trigger_interval,
                                 &attack_level, &attack_length,
                                 &fade_level, &fade_length);
     if (!ret) return NULL;
@@ -360,8 +362,8 @@ ioctl_EVIOCSFF_CONSTANT(PyObject *self, PyObject *args)
 	effect.type=fxtype; 
 	effect.direction=direction;
 
-	effect.trigger.button=0;
-	effect.trigger.interval=0;
+	effect.trigger.button=trigger_button; // 0 is default
+	effect.trigger.interval=trigger_interval;
 	effect.replay.length=replay_length;
 	effect.replay.delay=replay_delay;
 	// FF_Constant has a ff_constant struct in the union

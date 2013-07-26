@@ -284,7 +284,7 @@ class InputDevice(object):
 
     def set_FF_GAIN(self,force):
         '''set GAIN of force effects'''
-        gain = int(gain) & 0xFFFF
+        gain = int(force) & 0xFFFF
         return _input.set_FF_GAIN(self.fd, gain)
      
      
@@ -300,7 +300,7 @@ class InputDevice(object):
             effect = fx.effect
             envelope = effect.envelope
             return _input.ioctl_EVIOCSFF_CONSTANT(self.fd, fx.type,fx.id, fx.direction,effect.level,
-             fx.replay.length, fx.replay.delay, 
+             fx.replay.length, fx.replay.delay,  fx.trigger.button, fx.trigger.interval,
              envelope.attack_level, envelope.attack_length, envelope.fade_level, envelope.fade_length,
             )
         else:
